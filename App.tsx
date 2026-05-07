@@ -55,7 +55,7 @@ export default function App() {
           <Tab.Screen
             name="智能问答"
             component={ChatScreen}
-            options={{ headerTitle: 'AI 育儿助手' }}
+            options={{ headerTitle: '小芽育儿' }}
           />
           <Tab.Screen
             name="成长记录"

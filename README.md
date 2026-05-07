@@ -1,83 +1,79 @@
 # AI 育儿助手
 
-一款基于 React Native + Expo 开发的智能育儿助手 App，帮助新手父母轻松育儿。
+一款基于 React Native + Expo 开发的智能育儿助手 App，帮助新手父母记录宝宝成长、管理喂养睡眠，并通过“小芽”回答育儿问题。
 
-## 功能特性
+## 功能
 
-### 🤖 AI 智能问答
-- 内置丰富的育儿知识库（发烧、辅食、睡眠、母乳、湿疹、便秘、疫苗、出牙等）
-- 关键词智能匹配，即时回答育儿问题
-- 纯本地运行，无需网络，无需调用外部 API
-- 中国大陆完全可用，不依赖任何海外服务
-
-### 📊 宝宝成长记录
-- 记录宝宝基本信息（昵称、生日、性别）
-- 追踪身高、体重、头围变化
-- 发育里程碑清单（大运动、语言、社交、认知）
-
-### 🍼 喂养 & 睡眠记录
-- 支持母乳/奶瓶/辅食三种喂养方式记录
-- 睡眠时间和质量追踪
-- 今日统计面板
-
-### 🥣 辅食食谱推荐
-- 按月龄分类的辅食食谱
-- 详细的食材、做法、营养价值说明
-- 覆盖 6-18 个月各阶段
+- AI 智能问答：优先调用在线大模型接口，异常时自动回落到本地育儿知识库。
+- 宝宝成长记录：维护宝宝基本信息，记录身高、体重、头围和发育里程碑。
+- 喂养与睡眠记录：记录母乳、奶瓶、辅食和睡眠质量，展示当天统计。
+- 辅食食谱推荐：按月龄筛选 6-18 个月宝宝辅食食谱。
+- 本地数据持久化：使用 AsyncStorage 保存聊天、成长、喂养和睡眠数据。
 
 ## 技术栈
 
-- **React Native** + **Expo** (SDK 54)
-- **TypeScript**
-- **React Navigation** (底部标签导航)
-- **AsyncStorage** (本地数据持久化)
-- **Expo Vector Icons** (Ionicons 图标)
+- React Native + Expo SDK 54
+- TypeScript
+- React Navigation
+- AsyncStorage
+- Expo Vector Icons
+
+## 配置在线接口
+
+复制 `.env.example` 为 `.env.local`，然后填写 OpenAI 协议接口配置：
+
+```bash
+EXPO_PUBLIC_AI_BASE_URL=https://maas-coding-api.cn-huabei-1.xf-yun.com/v2
+EXPO_PUBLIC_AI_MODEL_ID=astron-code-latest
+EXPO_PUBLIC_AI_PROXY_URL=http://localhost:8787
+
+AI_BASE_URL=https://maas-coding-api.cn-huabei-1.xf-yun.com/v2
+AI_API_KEY=your-api-key
+AI_PROXY_PORT=8787
+```
+
+当前本地工作区已经创建了 `.env.local`。该文件被 `.gitignore` 忽略，不会提交到仓库。
+
+> 注意：`EXPO_PUBLIC_*` 环境变量会被打包到客户端，适合当前原型和本地测试。正式上线时建议增加后端代理，由服务端保存 API Key。
 
 ## 快速开始
 
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发服务器
 npm start
+```
 
-# 在 Android 设备/模拟器上运行
-npm run android
+常用命令：
 
-# 在 iOS 设备/模拟器上运行
-npm run ios
-
-# 在浏览器中运行
+```bash
+npm run proxy:ai
 npm run web
+npm run android
+npm run ios
+npm run typecheck
 ```
 
 ## 项目结构
 
-```
+```text
 ai-baby-assistant/
-├── App.tsx                   # 主入口，底部标签导航
+├── App.tsx
 ├── src/
-│   ├── screens/
-│   │   ├── ChatScreen.tsx    # AI 智能问答页面
-│   │   ├── GrowthScreen.tsx  # 成长记录页面
-│   │   ├── TrackingScreen.tsx# 喂养 & 睡眠记录
-│   │   └── RecipesScreen.tsx # 辅食食谱推荐
 │   ├── data/
-│   │   ├── aiKnowledge.ts    # AI 育儿知识库
-│   │   ├── milestones.ts     # 发育里程碑数据
-│   │   └── recipes.ts        # 辅食食谱数据
+│   │   ├── aiKnowledge.ts
+│   │   ├── milestones.ts
+│   │   └── recipes.ts
+│   ├── screens/
+│   │   ├── ChatScreen.tsx
+│   │   ├── GrowthScreen.tsx
+│   │   ├── TrackingScreen.tsx
+│   │   └── RecipesScreen.tsx
+│   ├── services/
+│   │   └── aiAssistant.ts
 │   ├── types/
-│   │   └── index.ts          # TypeScript 类型定义
+│   │   └── index.ts
 │   └── utils/
-│       └── storage.ts        # 本地存储工具
-├── app.json                  # Expo 配置
+│       └── storage.ts
+├── app.json
 └── package.json
 ```
-
-## 特点
-
-- **完全离线可用** - 所有数据本地存储，AI 知识库本地运行
-- **中国大陆友好** - 不依赖任何需要翻墙的服务
-- **跨平台** - 同时支持 iOS、Android 和 Web
-- **隐私安全** - 所有数据仅存储在用户设备本地

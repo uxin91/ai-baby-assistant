@@ -1,6 +1,10 @@
-const API_URL = 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions';
-const API_KEY = '378f119b3ce70ed35553cc9b0aeadf0a:ZWY5ZmI0OWFlZDVmZWIwNDdhNjBkMjUz';
-const MODEL_ID = 'astron-code-latest';
+import { Platform } from 'react-native';
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+const DEFAULT_BASE_URL = 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2';
 
 const SYSTEM_PROMPT =
   '你是一个专业的AI育儿助手，专门为中国家长提供科学、权威的育儿建议。\n' +
@@ -10,7 +14,7 @@ const SYSTEM_PROMPT =
   '如果涉及严重健康问题，请建议家长及时就医。\n' +
   '请用中文回答所有问题。';
 
-interface ChatMessage {
+export interface AssistantChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
@@ -26,11 +30,17 @@ interface APIResponse {
   };
 }
 
-export async function getXunfeiResponse(
+export async function getAssistantResponse(
   userMessage: string,
-  conversationHistory: ChatMessage[] = [],
+  conversationHistory: AssistantChatMessage[] = [],
 ): Promise<string> {
-  const messages: ChatMessage[] = [
+  const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY?.trim();
+  const modelId = process.env.EXPO_PUBLIC_AI_MODEL_ID?.trim() || 'astron-code-latest';
+  const baseUrl = process.env.EXPO_PUBLIC_AI_BASE_URL?.trim() || DEFAULT_BASE_URL;
+  const proxyUrl =
+    Platform.OS === 'web' ? process.env.EXPO_PUBLIC_AI_PROXY_URL?.trim() : undefined;
+
+  const messages: AssistantChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...conversationHistory.slice(-10),
     { role: 'user', content: userMessage },
@@ -40,18 +50,28 @@ export async function getXunfeiResponse(
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const response = await fetch(API_URL, {
+    const requestBody = {
+      model: modelId,
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+    };
+    const useProxy = Boolean(proxyUrl);
+    const requestUrl = useProxy
+      ? `${proxyUrl!.replace(/\/$/, '')}/api/ai/chat`
+      : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+
+    if (!useProxy && !apiKey) {
+      throw new Error('Xunfei API key is not configured');
+    }
+
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
+        ...(useProxy ? {} : { Authorization: `Bearer ${apiKey}` }),
       },
-      body: JSON.stringify({
-        model: MODEL_ID,
-        messages,
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
 
