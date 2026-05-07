@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { ChatMessage } from '../types';
 import { getAIResponse } from '../data/aiKnowledge';
+import { getXunfeiResponse } from '../services/xunfeiAI';
 import { loadFromStorage, saveToStorage, generateId } from '../utils/storage';
 
 const STORAGE_KEY = 'baby-chat-messages';
@@ -20,12 +21,13 @@ const welcomeMessage: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    '你好！我是你的AI育儿助手\n\n' +
-    '我可以帮你解答关于宝宝健康、喂养、睡眠、发育等方面的问题。\n\n' +
+    '你好！我是你的AI育儿助手 🤖\n\n' +
+    '我已接入讯飞星火大模型，可以智能回答你的各种育儿问题。\n\n' +
     '试试问我：\n' +
     '· 宝宝发烧怎么办？\n' +
     '· 什么时候开始加辅食？\n' +
-    '· 宝宝不睡觉怎么办？',
+    '· 宝宝不睡觉怎么办？\n' +
+    '· 或者任何你想问的育儿问题！',
   timestamp: new Date().toISOString(),
 };
 
@@ -45,7 +47,7 @@ export default function ChatScreen() {
     }
   }, [messages]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isTyping) return;
 
@@ -60,18 +62,31 @@ export default function ChatScreen() {
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getAIResponse(text);
-      const assistantMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: response,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-      setIsTyping(false);
-    }, 800);
-  }, [input, isTyping]);
+    let responseText: string;
+
+    try {
+      const history = messages
+        .filter((m) => m.id !== 'welcome')
+        .slice(-10)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }));
+
+      responseText = await getXunfeiResponse(text, history);
+    } catch {
+      responseText = getAIResponse(text);
+    }
+
+    const assistantMsg: ChatMessage = {
+      id: generateId(),
+      role: 'assistant',
+      content: responseText,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+    setIsTyping(false);
+  }, [input, isTyping, messages]);
 
   const quickQuestions = [
     '宝宝发烧怎么办？',
@@ -118,7 +133,7 @@ export default function ChatScreen() {
                 <Text style={styles.avatarText}>🤖</Text>
               </View>
               <View style={[styles.bubble, styles.bubbleAssistant]}>
-                <Text style={styles.typingText}>正在输入...</Text>
+                <Text style={styles.typingText}>AI 正在思考...</Text>
               </View>
             </View>
           ) : null
