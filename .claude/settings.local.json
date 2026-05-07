@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e练习/appproject/**)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

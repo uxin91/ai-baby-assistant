@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 declare const process: {
   env: Record<string, string | undefined>;
 };
@@ -33,12 +31,12 @@ interface APIResponse {
 export async function getAssistantResponse(
   userMessage: string,
   conversationHistory: AssistantChatMessage[] = [],
+  maxRetries = 2,
 ): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY?.trim();
   const modelId = process.env.EXPO_PUBLIC_AI_MODEL_ID?.trim() || 'astron-code-latest';
   const baseUrl = process.env.EXPO_PUBLIC_AI_BASE_URL?.trim() || DEFAULT_BASE_URL;
-  const proxyUrl =
-    Platform.OS === 'web' ? process.env.EXPO_PUBLIC_AI_PROXY_URL?.trim() : undefined;
+  // 始终使用 proxy（如果配置了），由 proxy 处理认证
+  const proxyUrl = process.env.EXPO_PUBLIC_AI_PROXY_URL?.trim();
 
   const messages: AssistantChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -46,56 +44,87 @@ export async function getAssistantResponse(
     { role: 'user', content: userMessage },
   ];
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let lastError: Error | undefined;
 
-  try {
-    const requestBody = {
-      model: modelId,
-      messages,
-      temperature: 0.7,
-      max_tokens: 1024,
-    };
-    const useProxy = Boolean(proxyUrl);
-    const requestUrl = useProxy
-      ? `${proxyUrl!.replace(/\/$/, '')}/api/ai/chat`
-      : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-
-    if (!useProxy && !apiKey) {
-      throw new Error('Xunfei API key is not configured');
+  // 重试机制
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      console.log(`\n🔄 第 ${attempt} 次重试...`);
+      // 指数退避：1s, 2s, 4s
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
     }
 
-    const response = await fetch(requestUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(useProxy ? {} : { Authorization: `Bearer ${apiKey}` }),
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn(`⏱️ 请求超时（${attempt + 1}/${maxRetries + 1}），尝试中止...`);
+      controller.abort();
+    }, 30000);
 
-    clearTimeout(timeoutId);
+    try {
+      const requestBody = {
+        model: modelId,
+        messages,
+        temperature: 0.7,
+        max_tokens: 1024,
+      };
+      const useProxy = Boolean(proxyUrl);
+      const requestUrl = useProxy
+        ? `${proxyUrl!.replace(/\/$/, '')}/api/ai/chat`
+        : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error ${response.status}: ${errorText}`);
+      console.log(`📡 发送请求到: ${useProxy ? proxyUrl : baseUrl}`);
+
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(useProxy ? {} : { Authorization: `Bearer ${process.env.EXPO_PUBLIC_AI_API_KEY?.trim()}` }),
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error ${response.status}: ${errorText}`);
+      }
+
+      const data: APIResponse = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error.message || 'API returned an error');
+      }
+
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('Empty response from API');
+      }
+
+      console.log('✅ 请求成功');
+      return content.trim();
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // 记录错误
+      if (error instanceof Error) {
+        lastError = error;
+        console.error(`❌ 请求失败（${attempt + 1}/${maxRetries + 1}）:`, error.message);
+
+        // 如果是超时错误且还有重试次数，继续重试
+        if (error.name === 'AbortError' && attempt < maxRetries) {
+          console.log('⏳ 超时，准备重试...');
+          continue;
+        }
+      }
+
+      // 最后一次失败，抛出错误
+      if (attempt === maxRetries) {
+        throw lastError || new Error('Request failed after all retries');
+      }
     }
-
-    const data: APIResponse = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message || 'API returned an error');
-    }
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('Empty response from API');
-    }
-
-    return content.trim();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
   }
+
+  throw lastError || new Error('Request failed');
 }
