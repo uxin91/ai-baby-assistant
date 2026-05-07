@@ -112,7 +112,9 @@ export default function TrackingScreen() {
     setSleepNote('');
   }, [sleepStart, sleepEnd, sleepQuality, sleepNote, sleepRecords]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const todayFeedings = feedingRecords.filter((r) => r.startTime.startsWith(todayStr));
   const todaySleeps = sleepRecords.filter((r) => r.startTime.startsWith(todayStr));
 
