@@ -57,6 +57,29 @@ Install-test:
 & 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' install -r android\app\build\outputs\apk\release\app-release.apk
 ```
 
+Launch-test and look for crashes:
+
+```powershell
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' logcat -c
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell monkey -p com.aibaby.assistant -c android.intent.category.LAUNCHER 1
+Start-Sleep -Seconds 10
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell pidof com.aibaby.assistant
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' logcat -d -t 500 | Select-String -Pattern "FATAL EXCEPTION|AndroidRuntime|ReactNativeJS|EXNativeModulesProxy|has not been registered"
+```
+
+Online-chat smoke test:
+
+```powershell
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' logcat -c
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell input tap 180 1068
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell input text "hello"
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell input tap 642 1068
+Start-Sleep -Seconds 20
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' shell uiautomator dump /sdcard/window-after-chat.xml
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' pull /sdcard/window-after-chat.xml tmp-window-after-chat.xml
+Select-String -Path tmp-window-after-chat.xml -Pattern "在线|离线|online|offline"
+```
+
 If a phone previously installed a debug-signed build with the same package name, the first release-signed install may require uninstalling the old app once.
 
 Copy for release upload:

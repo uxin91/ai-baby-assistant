@@ -38,6 +38,15 @@ function getConfig() {
       },
     },
     dependencies: {
+      expo: dep(
+        path.join(nm, 'expo'),
+        'expo',
+        {
+          sourceDir: path.join(nm, 'expo', 'android'),
+          packageImportPath: 'import expo.modules.ExpoModulesPackage;',
+          packageInstance: 'new ExpoModulesPackage()',
+        }
+      ),
       '@react-native-async-storage/async-storage': dep(
         path.join(nm, '@react-native-async-storage', 'async-storage'),
         '@react-native-async-storage/async-storage',

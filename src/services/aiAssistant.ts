@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 declare const process: {
   env: Record<string, string | undefined>;
 };
@@ -33,6 +35,20 @@ function cleanAssistantText(text: string): string {
   return text.replace(BLOCKED_BRAND_PATTERN, 'AI 服务').trim();
 }
 
+function shouldUseProxy(proxyUrl: string | undefined): proxyUrl is string {
+  if (!proxyUrl) {
+    return false;
+  }
+
+  const normalizedUrl = proxyUrl.trim().toLowerCase();
+  const isLocalProxy =
+    normalizedUrl.includes('://localhost') ||
+    normalizedUrl.includes('://127.0.0.1') ||
+    normalizedUrl.includes('://0.0.0.0');
+
+  return Platform.OS === 'web' || !isLocalProxy;
+}
+
 export async function getAssistantResponse(
   userMessage: string,
   conversationHistory: AssistantChatMessage[] = [],
@@ -65,7 +81,7 @@ export async function getAssistantResponse(
         temperature: 0.7,
         max_tokens: 1024,
       };
-      const useProxy = Boolean(proxyUrl);
+      const useProxy = shouldUseProxy(proxyUrl);
       const requestUrl = useProxy
         ? `${proxyUrl!.replace(/\/$/, '')}/api/ai/chat`
         : `${baseUrl.replace(/\/$/, '')}/chat/completions`;

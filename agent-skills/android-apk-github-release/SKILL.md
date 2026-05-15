@@ -20,6 +20,7 @@ Before rebuilding or releasing, read this skill and check the current repo state
    - Start the proxy with `npm run proxy:ai` or `scripts/start-ai-proxy-preview.cmd`.
    - Test `OPTIONS /api/ai/chat` returns `204`.
    - Test `POST /api/ai/chat` returns JSON with `message.content`.
+   - For Android/iOS APKs, do not rely on `http://localhost:8787`; mobile `localhost` points at the device. Native builds must either use a reachable LAN/prod proxy or bypass local proxy and call the HTTPS AI API directly.
    - Keep provider/vendor names out of user-facing prompts, logs shown in UI, and chat responses. Use a sanitizer for upstream text when needed.
 
 3. Build the APK.
@@ -46,6 +47,8 @@ Before rebuilding or releasing, read this skill and check the current repo state
 - `tsc --noEmit` may fail on existing unrelated helper files. Record the exact failure instead of broadening the release task.
 - `git status` does not show ignored `/android` changes. If APK builds depend on ignored native edits, document them.
 - A release APK signed with the debug certificate may pass basic APK verification but is not a good public install artifact. Always inspect `apksigner --print-certs`.
+- If the release app crashes with `EXNativeModulesProxy` missing, ensure `ExpoModulesPackage` is registered. In this repo the tracked local RN CLI shim must include the `expo` package so generated Android `PackageList.java` contains `new ExpoModulesPackage()`.
+- If chat stays offline only in APK, inspect the bundled AI endpoint. A `localhost` proxy in a mobile package is wrong unless it is explicitly translated to the emulator host or bypassed.
 - `fatal: unsafe repository` is a Windows ownership/sandbox symptom. Use the same working Git context that successfully committed, or add a scoped safe.directory only if acceptable.
 - PowerShell `Invoke-RestMethod` and Windows `curl.exe` may hit TLS credential issues. Node `https` worked for GitHub API calls here.
 
