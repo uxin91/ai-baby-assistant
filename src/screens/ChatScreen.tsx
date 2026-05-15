@@ -1,19 +1,20 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ChatMessage } from '../types';
 import { getAIResponse } from '../data/aiKnowledge';
 import { getAssistantResponse, type AssistantChatMessage } from '../services/aiAssistant';
-import { loadFromStorage, saveToStorage, generateId } from '../utils/storage';
+import { generateId, loadFromStorage, saveToStorage } from '../utils/storage';
+import { colors, layout, radius, shadow, softShadow } from '../theme';
 
 const STORAGE_KEY = 'baby-chat-messages';
 
@@ -21,10 +22,11 @@ const welcomeMessage: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    '你好，我是小芽。\n\n' +
-    '把宝宝的月龄、症状或喂养情况告诉我，我会尽量给出清晰、温和、可执行的建议。涉及急症或持续异常时，请及时联系儿科医生。',
+    '你好，我是小芽。\n\n把宝宝的月龄、症状、喂养或睡眠情况告诉我，我会尽量给出清晰、温和、可执行的建议。遇到急症或持续异常，请及时联系儿科医生。',
   timestamp: new Date().toISOString(),
 };
+
+const quickQuestions = ['宝宝发烧怎么办？', '什么时候加辅食？', '宝宝不睡觉怎么办？', '母乳喂养注意事项'];
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
@@ -35,12 +37,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     loadFromStorage<ChatMessage[]>(STORAGE_KEY, [welcomeMessage]).then((saved) => {
-      if (saved.length === 0) {
-        setMessages([welcomeMessage]);
-        return;
-      }
-
-      setMessages(saved.map((message) => (message.id === 'welcome' ? welcomeMessage : message)));
+      setMessages(saved.length === 0 ? [welcomeMessage] : saved.map((message) => (message.id === 'welcome' ? welcomeMessage : message)));
     });
   }, []);
 
@@ -69,31 +66,13 @@ export default function ChatScreen() {
       const history: AssistantChatMessage[] = messages
         .filter((m) => m.id !== 'welcome')
         .slice(-10)
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
-
+        .map((m) => ({ role: m.role, content: m.content }));
       const responseText = await getAssistantResponse(text, history);
-      const assistantMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: responseText,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, { id: generateId(), role: 'assistant', content: responseText, timestamp: new Date().toISOString() }]);
       setAnswerSource('online');
     } catch (error) {
-      const fallbackText =
-        getAIResponse(text) +
-        '\n\n（小芽暂时切到离线参考模式。你可以继续提问，稍后再试在线回答。）';
-      const assistantMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: fallbackText,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      const fallbackText = `${getAIResponse(text)}\n\n（小芽暂时切到离线参考模式。你可以继续提问，稍后再试在线回答。）`;
+      setMessages((prev) => [...prev, { id: generateId(), role: 'assistant', content: fallbackText, timestamp: new Date().toISOString() }]);
       setAnswerSource('local');
       console.warn('Assistant request failed, used local fallback:', error);
     } finally {
@@ -101,35 +80,28 @@ export default function ChatScreen() {
     }
   }, [input, isTyping, messages]);
 
-  const quickQuestions = [
-    '宝宝发烧怎么办？',
-    '什么时候加辅食？',
-    '宝宝不睡觉怎么办？',
-    '母乳喂养注意事项',
-  ];
-
   const renderHeader = () => (
     <View style={styles.heroPanel}>
       <View style={styles.heroTop}>
         <View style={styles.brandMark}>
-          <Ionicons name="leaf" size={20} color="#1f7a63" />
+          <Ionicons name="sparkles" size={22} color={colors.blue} />
         </View>
         <View style={styles.heroTitleArea}>
           <Text style={styles.heroTitle}>小芽育儿</Text>
-          <Text style={styles.heroSubtitle}>把担心说清楚，把下一步变简单</Text>
+          <Text style={styles.heroSubtitle}>把担心说清楚，把下一步变简单。</Text>
         </View>
       </View>
       <View style={styles.metricRow}>
         <View style={styles.metricItem}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#1f7a63" />
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.mint} />
           <Text style={styles.metricText}>健康建议</Text>
         </View>
         <View style={styles.metricItem}>
-          <Ionicons name="restaurant-outline" size={16} color="#d97745" />
+          <Ionicons name="restaurant-outline" size={16} color={colors.orange} />
           <Text style={styles.metricText}>喂养辅食</Text>
         </View>
         <View style={styles.metricItem}>
-          <Ionicons name="moon-outline" size={16} color="#5967b2" />
+          <Ionicons name="moon-outline" size={16} color={colors.violet} />
           <Text style={styles.metricText}>睡眠作息</Text>
         </View>
       </View>
@@ -139,31 +111,16 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <View style={[styles.messageRow, item.role === 'user' && styles.messageRowUser]}>
       <View style={[styles.avatar, item.role === 'user' && styles.avatarUser]}>
-        {item.role === 'assistant' ? (
-          <Ionicons name="leaf" size={16} color="#1f7a63" />
-        ) : (
-          <Ionicons name="person" size={16} color="#5967b2" />
-        )}
+        <Ionicons name={item.role === 'assistant' ? 'sparkles' : 'person'} size={15} color={item.role === 'assistant' ? colors.blue : colors.violet} />
       </View>
-      <View
-        style={[
-          styles.bubble,
-          item.role === 'assistant' ? styles.bubbleAssistant : styles.bubbleUser,
-        ]}
-      >
-        <Text style={[styles.bubbleText, item.role === 'user' && styles.bubbleTextUser]}>
-          {item.content}
-        </Text>
+      <View style={[styles.bubble, item.role === 'assistant' ? styles.bubbleAssistant : styles.bubbleUser]}>
+        <Text style={[styles.bubbleText, item.role === 'user' && styles.bubbleTextUser]}>{item.content}</Text>
       </View>
     </View>
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -174,9 +131,9 @@ export default function ChatScreen() {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         ListFooterComponent={
           isTyping ? (
-            <View style={[styles.messageRow]}>
+            <View style={styles.messageRow}>
               <View style={styles.avatar}>
-                <Ionicons name="leaf" size={16} color="#1f7a63" />
+                <Ionicons name="sparkles" size={15} color={colors.blue} />
               </View>
               <View style={[styles.bubble, styles.bubbleAssistant]}>
                 <Text style={styles.typingText}>小芽正在整理建议...</Text>
@@ -198,21 +155,9 @@ export default function ChatScreen() {
 
       <View style={styles.inputArea}>
         {answerSource && (
-          <View
-            style={[
-              styles.sourceBadge,
-              answerSource === 'online' ? styles.sourceBadgeOnline : styles.sourceBadgeLocal,
-            ]}
-          >
-            <Text
-              style={[
-                styles.sourceBadgeText,
-                answerSource === 'online'
-                  ? styles.sourceBadgeTextOnline
-                  : styles.sourceBadgeTextLocal,
-              ]}
-            >
-              {answerSource === 'online' ? '在线回答' : '离线参考'}
+          <View style={[styles.sourceBadge, answerSource === 'online' ? styles.sourceBadgeOnline : styles.sourceBadgeLocal]}>
+            <Text style={[styles.sourceBadgeText, answerSource === 'online' ? styles.sourceBadgeTextOnline : styles.sourceBadgeTextLocal]}>
+              {answerSource === 'online' ? '在线' : '离线'}
             </Text>
           </View>
         )}
@@ -221,16 +166,12 @@ export default function ChatScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="输入你的育儿问题..."
-          placeholderTextColor="#aaa"
+          placeholderTextColor={colors.textSubtle}
           returnKeyType="send"
           onSubmitEditing={handleSend}
         />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!input.trim() || isTyping) && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={!input.trim() || isTyping}
-        >
-          <Ionicons name="send" size={20} color="#fff" />
+        <TouchableOpacity style={[styles.sendBtn, (!input.trim() || isTyping) && styles.sendBtnDisabled]} onPress={handleSend} disabled={!input.trim() || isTyping}>
+          <Ionicons name="arrow-up" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -238,202 +179,46 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f8f4',
-  },
-  messagesList: {
-    padding: 18,
-    paddingBottom: 10,
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-  },
+  container: { flex: 1, backgroundColor: colors.canvas },
+  messagesList: { padding: layout.pagePadding, paddingBottom: 10, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' },
   heroPanel: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
+    padding: 18,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e6eadf',
+    borderColor: colors.lineSoft,
     marginBottom: 18,
-    shadowColor: '#274238',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 2,
+    ...shadow,
   },
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  brandMark: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#e8f4ee',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroTitleArea: {
-    flex: 1,
-  },
-  heroTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#24352f',
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: '#69776f',
-    marginTop: 3,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 14,
-  },
-  metricItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#f4f6f0',
-  },
-  metricText: {
-    fontSize: 12,
-    color: '#4f5f56',
-    fontWeight: '600',
-  },
-  messageRow: {
-    flexDirection: 'row',
-    marginBottom: 14,
-    alignItems: 'flex-start',
-  },
-  messageRowUser: {
-    flexDirection: 'row-reverse',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#e8f4ee',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#d8e8df',
-  },
-  avatarUser: {
-    backgroundColor: '#eef1ff',
-    borderColor: '#dfe3ff',
-  },
-  bubble: {
-    maxWidth: '78%',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  bubbleAssistant: {
-    backgroundColor: '#fff',
-    borderColor: '#e6eadf',
-  },
-  bubbleUser: {
-    backgroundColor: '#5967b2',
-    borderColor: '#5967b2',
-  },
-  bubbleText: {
-    fontSize: 14,
-    lineHeight: 23,
-    color: '#26352f',
-  },
-  bubbleTextUser: {
-    color: '#fff',
-  },
-  typingText: {
-    fontSize: 14,
-    color: '#69776f',
-  },
-  quickContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingBottom: 10,
-    gap: 8,
-  },
-  quickBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d8e8df',
-    backgroundColor: '#fff',
-  },
-  quickBtnText: {
-    fontSize: 13,
-    color: '#1f7a63',
-    fontWeight: '600',
-  },
-  inputArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 760,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    backgroundColor: '#f7f8f4',
-    borderTopWidth: 1,
-    borderTopColor: '#e6eadf',
-    gap: 8,
-  },
-  sourceBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  sourceBadgeOnline: {
-    backgroundColor: '#e8f4ee',
-  },
-  sourceBadgeLocal: {
-    backgroundColor: '#fff1e8',
-  },
-  sourceBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  sourceBadgeTextOnline: {
-    color: '#1f7a63',
-  },
-  sourceBadgeTextLocal: {
-    color: '#c45d2d',
-  },
-  textInput: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dfe5da',
-    backgroundColor: '#fff',
-    fontSize: 14,
-  },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 8,
-    backgroundColor: '#1f7a63',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnDisabled: {
-    opacity: 0.5,
-  },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  brandMark: { width: 46, height: 46, borderRadius: 16, backgroundColor: '#e8f2ff', alignItems: 'center', justifyContent: 'center' },
+  heroTitleArea: { flex: 1 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
+  heroSubtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
+  metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  metricItem: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: '#f6f8fc' },
+  metricText: { fontSize: 12, color: colors.textMuted, fontWeight: '700' },
+  messageRow: { flexDirection: 'row', marginBottom: 14, alignItems: 'flex-start' },
+  messageRowUser: { flexDirection: 'row-reverse' },
+  avatar: { width: 32, height: 32, borderRadius: 12, backgroundColor: '#e8f2ff', alignItems: 'center', justifyContent: 'center', marginHorizontal: 6, borderWidth: 1, borderColor: '#d9e9ff' },
+  avatarUser: { backgroundColor: '#f0edff', borderColor: '#e3defd' },
+  bubble: { maxWidth: '78%', paddingHorizontal: 15, paddingVertical: 12, borderRadius: 20, borderWidth: 1 },
+  bubbleAssistant: { backgroundColor: colors.surfaceSolid, borderColor: colors.lineSoft, ...softShadow },
+  bubbleUser: { backgroundColor: colors.blue, borderColor: colors.blue },
+  bubbleText: { fontSize: 15, lineHeight: 23, color: colors.text },
+  bubbleTextUser: { color: '#fff' },
+  typingText: { fontSize: 14, color: colors.textMuted },
+  quickContainer: { flexDirection: 'row', flexWrap: 'wrap', width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 10, gap: 8 },
+  quickBtn: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: colors.lineSoft, backgroundColor: colors.surfaceSolid },
+  quickBtnText: { fontSize: 13, color: colors.blue, fontWeight: '700' },
+  inputArea: { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingVertical: 12, backgroundColor: colors.canvas, borderTopWidth: 1, borderTopColor: colors.lineSoft, gap: 8 },
+  sourceBadge: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 999 },
+  sourceBadgeOnline: { backgroundColor: '#e8f2ff' },
+  sourceBadgeLocal: { backgroundColor: '#fff3df' },
+  sourceBadgeText: { fontSize: 11, fontWeight: '800' },
+  sourceBadgeTextOnline: { color: colors.blue },
+  sourceBadgeTextLocal: { color: '#b56a00' },
+  textInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 18, borderWidth: 1, borderColor: colors.lineSoft, backgroundColor: colors.surfaceSolid, fontSize: 15, color: colors.text },
+  sendBtn: { width: 42, height: 42, borderRadius: 16, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', ...softShadow },
+  sendBtnDisabled: { opacity: 0.45 },
 });

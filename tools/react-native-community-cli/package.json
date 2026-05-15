@@ -1,0 +1,8 @@
+{
+  "name": "@react-native-community/cli",
+  "version": "0.0.0-local",
+  "main": "index.js",
+  "bin": {
+    "react-native": "index.js"
+  }
+}

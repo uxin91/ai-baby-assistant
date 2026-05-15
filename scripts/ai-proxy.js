@@ -34,6 +34,20 @@ const baseUrl =
   'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2';
 const apiKey = process.env.AI_API_KEY || process.env.EXPO_PUBLIC_AI_API_KEY;
 const defaultModel = process.env.AI_MODEL_ID || process.env.EXPO_PUBLIC_AI_MODEL_ID || 'astron-code-latest';
+const blockedBrandPattern = new RegExp('\\u8baf\\u98de', 'g');
+
+function sanitizePayloadText(value) {
+  if (typeof value === 'string') {
+    return value.replace(blockedBrandPattern, 'AI 服务');
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizePayloadText);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizePayloadText(item)]));
+  }
+  return value;
+}
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -70,7 +84,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const isChatRoute = req.url === '/api/ai/chat' || req.url === '/api/xunfei/chat';
+  const isChatRoute = req.url === '/api/ai/chat';
 
   if (req.method !== 'POST' || !isChatRoute) {
     sendJson(res, 404, { error: { message: 'Not found' } });
@@ -102,13 +116,23 @@ const server = http.createServer(async (req, res) => {
     });
 
     const text = await upstream.text();
+    let responseText = text;
+    if ((upstream.headers.get('content-type') || '').includes('application/json')) {
+      try {
+        responseText = JSON.stringify(sanitizePayloadText(JSON.parse(text)));
+      } catch {
+        responseText = sanitizePayloadText(text);
+      }
+    } else {
+      responseText = sanitizePayloadText(text);
+    }
     res.writeHead(upstream.status, {
       'Content-Type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     });
-    res.end(text);
+    res.end(responseText);
   } catch (error) {
     sendJson(res, 502, {
       error: {
