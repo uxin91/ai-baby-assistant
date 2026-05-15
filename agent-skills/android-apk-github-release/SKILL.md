@@ -26,6 +26,8 @@ Before rebuilding or releasing, read this skill and check the current repo state
    - The generated native folders `/android` and `/ios` are ignored by Git in this repo. Do not assume Android build fixes are tracked unless you intentionally add them.
    - Build from `android` with the Windows command in `references/windows-commands.md`.
    - Expected output: `android/app/build/outputs/apk/release/app-release.apk`.
+   - Verify the release APK is not signed with `CN=Android Debug`; public downloads must use a stable release certificate.
+   - Install-test on a connected emulator or device with `adb install -r` before publishing.
    - Copy the APK to `release-artifacts/xiaoya-baby-vX.Y.Z.apk` for upload, but do not commit `release-artifacts/` unless the user explicitly asks.
 
 4. Commit and push code only.
@@ -43,6 +45,7 @@ Before rebuilding or releasing, read this skill and check the current repo state
 - `ERR_CONNECTION_REFUSED` in the in-app browser means the preview server is not running on that port, not that the UI build is broken.
 - `tsc --noEmit` may fail on existing unrelated helper files. Record the exact failure instead of broadening the release task.
 - `git status` does not show ignored `/android` changes. If APK builds depend on ignored native edits, document them.
+- A release APK signed with the debug certificate may pass basic APK verification but is not a good public install artifact. Always inspect `apksigner --print-certs`.
 - `fatal: unsafe repository` is a Windows ownership/sandbox symptom. Use the same working Git context that successfully committed, or add a scoped safe.directory only if acceptable.
 - PowerShell `Invoke-RestMethod` and Windows `curl.exe` may hit TLS credential issues. Node `https` worked for GitHub API calls here.
 

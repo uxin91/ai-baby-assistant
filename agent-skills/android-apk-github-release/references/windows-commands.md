@@ -42,6 +42,23 @@ Expected output:
 android\app\build\outputs\apk\release\app-release.apk
 ```
 
+Verify signing and package metadata:
+
+```powershell
+& 'C:\Users\dell\AppData\Local\Android\Sdk\build-tools\36.0.0\apksigner.bat' verify --verbose --print-certs android\app\build\outputs\apk\release\app-release.apk
+& 'C:\Users\dell\AppData\Local\Android\Sdk\build-tools\36.0.0\aapt.exe' dump badging android\app\build\outputs\apk\release\app-release.apk
+```
+
+The signer must be the project release certificate, not `CN=Android Debug`.
+
+Install-test:
+
+```powershell
+& 'C:\Users\dell\AppData\Local\Android\Sdk\platform-tools\adb.exe' install -r android\app\build\outputs\apk\release\app-release.apk
+```
+
+If a phone previously installed a debug-signed build with the same package name, the first release-signed install may require uninstalling the old app once.
+
 Copy for release upload:
 
 ```powershell
